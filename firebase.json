@@ -1,0 +1,9 @@
+{
+  "apphosting": {
+    "backends": {
+      "client-finder": {
+        "codebase": "."
+      }
+    }
+  }
+}
