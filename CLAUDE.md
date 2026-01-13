@@ -60,8 +60,10 @@ src/
 │   ├── google-maps.ts                    # Maps API loader
 │   ├── places-service.ts                 # Places API wrapper & utilities
 │   ├── csv-export.ts                     # CSV generation
-│   ├── firebase.ts                       # Firebase initialization
-│   ├── firestore-service.ts              # Firestore CRUD operations
+│   ├── firebase.ts                       # Firebase client SDK initialization
+│   ├── firebase-admin.ts                 # Firebase Admin SDK initialization (server-side)
+│   ├── firestore-service.ts              # Firestore CRUD operations (client-side)
+│   ├── firestore-admin-service.ts        # Firestore operations (server-side Admin SDK)
 │   └── email-templates.ts                # Email template definitions
 ├── types/
 │   ├── lead.ts                           # Lead data structure
@@ -187,6 +189,31 @@ The app now uses Next.js App Router with three main screens:
 6. Logout calls `signOut()` from Firebase Auth and redirects to `/login`
 
 **Note:** Users must be created in Firebase Console or via sign-up flow. The app uses Firebase Authentication, not AWS Cognito or mock auth.
+
+### Firebase SDK Architecture
+
+The app uses **two separate Firebase SDKs** for different environments:
+
+**Client SDK** (`src/lib/firebase.ts`)
+- Used: Browser components and client-side operations
+- SDK: `firebase` npm package
+- Operations: User authentication, real-time Firestore updates, client-side queries
+- Config: Uses `NEXT_PUBLIC_*` environment variables
+- Auth: Uses browser-stored authentication tokens from Firebase Auth
+
+**Admin SDK** (`src/lib/firebase-admin.ts`)
+- Used: Server-side API routes (Node.js)
+- SDK: `firebase-admin` npm package
+- Operations: Privileged Firestore queries, server-side operations
+- Config: Uses service account credentials (`FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`)
+- Auth: Bypasses security rules with elevated privileges
+- Example: `/api/contacted-leads` uses Admin SDK to query `leads` collection
+
+This separation is necessary because:
+- Client SDK requires browser globals (window, localStorage) - doesn't work in Node.js
+- Admin SDK provides elevated privileges needed for server-side operations
+- Client-side queries are still protected by Firestore security rules
+- Server-side queries are isolated to trusted API routes
 
 ### Search & Contact Tracking Flow
 
@@ -477,3 +504,34 @@ The app is deployed to Firebase App Hosting with environment-based configuration
 - Check browser DevTools Console for Firebase auth errors
 - Verify `.env.local` is loaded (restart dev server after changes)
 - Look for error codes like "auth/user-not-found", "auth/wrong-password"
+
+**"The query requires an index" (Firestore - /contacts page)**
+- This error occurs when querying Firestore with both a `where` clause and `orderBy` on different fields
+- Required composite index: Collection `leads`, Fields: `contacted` (Ascending) + `contactedDate` (Descending)
+- **Fix:**
+  1. Check server console for error with auto-creation URL: `https://console.firebase.google.com/v1/r/project/.../firestore/indexes?create_composite=...`
+  2. Click the URL to automatically create the index in Firebase Console
+  3. Wait 1-5 minutes for the index to build (you'll see status "Enabled")
+  4. Refresh the `/contacts` page - it should now load data successfully
+  5. If error persists, manually create the index:
+     - Go to [Firebase Console](https://console.firebase.google.com/) → Firestore Database → Indexes
+     - Create composite index on collection `leads`
+     - Add fields: `contacted` (Ascending), then `contactedDate` (Descending)
+     - Wait for "Enabled" status
+- This is a one-time setup per Firebase project
+
+**Firebase Admin SDK environment variables missing**
+- The app uses Firebase Admin SDK for server-side API operations (e.g., `/api/contacted-leads`)
+- Required environment variables in `.env.local`:
+  ```env
+  FIREBASE_PROJECT_ID=your_project_id
+  FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com
+  FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----\n"
+  ```
+- **To get these credentials:**
+  1. Go to [Firebase Console](https://console.firebase.google.com/) → Project Settings → Service Accounts
+  2. Click "Generate new private key" and download the JSON file
+  3. Extract the `projectId`, `client_email`, and `private_key` fields
+  4. Add to `.env.local` with proper newline escaping (use `\n` in the key, not actual newlines)
+- **Note:** Never commit `.env.local` to git
+- If you see "Missing Firebase Admin credentials" error, verify all three variables are set and properly formatted

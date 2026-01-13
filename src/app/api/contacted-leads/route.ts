@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getContactedLeads } from '@/lib/firestore-service'
+import { getContactedLeads } from '@/lib/firestore-admin-service'
 
 export async function GET(_request: NextRequest) {
   try {

@@ -6,6 +6,7 @@ import {
   EMAIL_TEMPLATES,
   fillTemplate,
   copyToClipboard,
+  getTemplatesForLeadType,
 } from '@/lib/email-templates'
 
 interface EmailModalProps {
@@ -76,16 +77,37 @@ export function EmailModal({ lead, isOpen, onClose }: EmailModalProps) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Email Template
             </label>
+            {lead && (
+              <div className="mb-2 text-xs text-gray-600">
+                <span className="font-medium">Lead Type:</span>{' '}
+                <span className="capitalize">{lead.type}</span>
+              </div>
+            )}
             <select
               value={selectedTemplateId}
               onChange={(e) => setSelectedTemplateId(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
-              {EMAIL_TEMPLATES.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.name} - {template.description}
-                </option>
-              ))}
+              {lead && getTemplatesForLeadType(lead.type).recommended.length > 0 && (
+                <optgroup label="Recommended for this lead type">
+                  {getTemplatesForLeadType(lead.type).recommended.map(
+                    (template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name} - {template.description}
+                      </option>
+                    )
+                  )}
+                </optgroup>
+              )}
+              {lead && getTemplatesForLeadType(lead.type).other.length > 0 && (
+                <optgroup label="Other options for this lead type">
+                  {getTemplatesForLeadType(lead.type).other.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name} - {template.description}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
 

@@ -1,4 +1,4 @@
-import { Lead } from '@/types/lead'
+import { Lead, LeadType } from '@/types/lead'
 
 export interface EmailTemplate {
   id: string
@@ -6,11 +6,14 @@ export interface EmailTemplate {
   subject: string
   body: string
   description: string
+  leadTypes: LeadType[]
+  recommended?: boolean
 }
 
 // Email templates with placeholders
 // Placeholders: {{name}}, {{address}}, {{contactPerson}}
 export const EMAIL_TEMPLATES: EmailTemplate[] = [
+  // Generic templates for all lead types
   {
     id: 'initial-outreach',
     name: 'Initial Outreach',
@@ -35,6 +38,7 @@ Looking forward to connecting!
 Best regards,
 [Your Name]
 SAG-Trash Services`,
+    leadTypes: ['pool', 'hoa', 'neighborhood', 'other'],
   },
   {
     id: 'follow-up',
@@ -57,6 +61,7 @@ Feel free to reply to this email or call at your convenience.
 Best regards,
 [Your Name]
 SAG-Trash Services`,
+    leadTypes: ['pool', 'hoa', 'neighborhood', 'other'],
   },
   {
     id: 'seasonal-reminder',
@@ -80,6 +85,104 @@ Would {{name}} be interested in our seasonal maintenance package? I'm happy to p
 Thank you,
 [Your Name]
 SAG-Trash Services`,
+    leadTypes: ['pool'],
+    recommended: true,
+  },
+
+  // Pool-specific templates
+  {
+    id: 'pool-maintenance-checkin',
+    name: 'Pool Maintenance Check-In',
+    description: 'Specialized pool maintenance and care',
+    subject: 'Expert Pool Maintenance for {{name}} - SAG-Trash',
+    body: `Hi {{contactPerson}},
+
+I wanted to reach out to {{name}} at {{address}} regarding comprehensive pool maintenance and care services.
+
+Proper pool maintenance is critical for member safety, equipment longevity, and regulatory compliance. At SAG-Trash, we provide:
+
+• Weekly chemical balancing and water testing
+• Equipment inspection and preventative maintenance
+• Filter cleaning and system optimization
+• Deck and surrounding area maintenance
+• Compliance documentation and reporting
+
+Our proactive maintenance approach helps avoid costly repairs and keeps your facility operating at peak efficiency year-round.
+
+Would you be open to discussing a customized maintenance plan for {{name}}? I can provide references from similar facilities we service in the area.
+
+Best regards,
+[Your Name]
+SAG-Trash Services`,
+    leadTypes: ['pool'],
+    recommended: true,
+  },
+  {
+    id: 'pool-service-packages',
+    name: 'Service Packages for Pools',
+    description: 'Sales-focused pool service options',
+    subject: 'Flexible Service Packages for {{name}}',
+    body: `Hi {{contactPerson}},
+
+Thank you for your interest in SAG-Trash pool services for {{name}}.
+
+We offer flexible service packages tailored to meet the unique needs of each facility:
+
+**Basic Maintenance Package**
+• 2x weekly visits
+• Chemical balancing and testing
+• Equipment inspection
+
+**Premium Care Package**
+• 3x weekly visits
+• All basic services plus
+• Deep cleaning and tile brushing
+• Equipment repair coordination
+
+**Elite Management Package**
+• Daily service availability
+• 24/7 emergency support
+• Full facility management and reporting
+• Dedicated service technician
+
+All packages include:
+• Transparent pricing with no hidden fees
+• Flexible contract terms (monthly or annual)
+• Performance guarantees
+
+Could we schedule a brief consultation to discuss which package best fits {{name}}'s needs and budget? I'm confident we can deliver exceptional value.
+
+Best regards,
+[Your Name]
+SAG-Trash Services`,
+    leadTypes: ['pool'],
+  },
+  {
+    id: 'pool-emergency-service',
+    name: 'Emergency Pool Service',
+    description: 'Emergency response and urgent repairs',
+    subject: 'Rapid Emergency Pool Service for {{name}}',
+    body: `Hi {{contactPerson}},
+
+Are you aware that SAG-Trash offers rapid emergency pool service response for {{name}} at {{address}}?
+
+When equipment failures, chemical imbalances, or other urgent issues occur, every hour counts. Our emergency response team:
+
+• Responds within 2-4 hours in most cases
+• Handles equipment repairs and replacements
+• Addresses water chemistry emergencies
+• Provides 24/7 availability
+
+By establishing a service relationship now, you'll have priority access to our emergency response team should urgent issues arise.
+
+Even if you're currently satisfied with your maintenance provider, having SAG-Trash as a backup resource is valuable peace of mind for {{name}}.
+
+Would you like to discuss adding emergency service coverage?
+
+Best regards,
+[Your Name]
+SAG-Trash Services`,
+    leadTypes: ['pool'],
   },
 ]
 
@@ -115,6 +218,26 @@ export function fillTemplate(template: EmailTemplate, lead: Lead): EmailTemplate
  */
 export function getTemplate(id: string): EmailTemplate | undefined {
   return EMAIL_TEMPLATES.find((t) => t.id === id)
+}
+
+/**
+ * Get templates applicable to a specific lead type
+ * Returns recommended templates first, then other applicable templates
+ */
+export function getTemplatesForLeadType(
+  leadType: LeadType
+): {
+  recommended: EmailTemplate[]
+  other: EmailTemplate[]
+} {
+  const applicableTemplates = EMAIL_TEMPLATES.filter((t) =>
+    t.leadTypes.includes(leadType)
+  )
+
+  const recommended = applicableTemplates.filter((t) => t.recommended)
+  const other = applicableTemplates.filter((t) => !t.recommended)
+
+  return { recommended, other }
 }
 
 /**

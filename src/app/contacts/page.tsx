@@ -4,15 +4,18 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useContactedLeads } from '@/hooks/useContactedLeads'
+import { useLeadData } from '@/hooks/useLeadData'
 import { Lead, LeadType } from '@/types/lead'
 import { ContactsTable } from '@/components/contacts/ContactsTable'
 import { ContactsFilters } from '@/components/contacts/ContactsFilters'
 import { EmailModal } from '@/components/email/EmailModal'
+import { LeadDetailsModal } from '@/components/leads/LeadDetailsModal'
 
 export default function ContactsPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const { leads, loading: leadsLoading, error } = useContactedLeads()
+  const { markAsContacted, updateContactInfo } = useLeadData(leads)
 
   const [filters, setFilters] = useState<{
     type: LeadType | 'all'
@@ -26,6 +29,8 @@ export default function ContactsPage() {
 
   const [emailModalOpen, setEmailModalOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false)
+  const [selectedLeadForDetails, setSelectedLeadForDetails] = useState<Lead | null>(null)
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -46,8 +51,19 @@ export default function ContactsPage() {
   }
 
   const handleViewDetails = (lead: Lead) => {
-    // TODO: Open lead details modal
-    console.log('View details for:', lead.name)
+    setSelectedLeadForDetails(lead)
+    setDetailsModalOpen(true)
+  }
+
+  const handleCloseDetails = () => {
+    setDetailsModalOpen(false)
+    setSelectedLeadForDetails(null)
+  }
+
+  const handleMarkContacted = async (notes?: string) => {
+    if (selectedLeadForDetails) {
+      await markAsContacted(selectedLeadForDetails.id, notes)
+    }
   }
 
   if (authLoading) {
@@ -137,6 +153,16 @@ export default function ContactsPage() {
           setEmailModalOpen(false)
           setSelectedLead(null)
         }}
+      />
+
+      {/* Lead Details Modal */}
+      <LeadDetailsModal
+        lead={selectedLeadForDetails}
+        isOpen={detailsModalOpen}
+        onClose={handleCloseDetails}
+        onMarkContacted={handleMarkContacted}
+        onUpdateContactInfo={updateContactInfo}
+        loading={false}
       />
     </div>
   )

@@ -59,9 +59,14 @@ export function LeadCard({
               </p>
             </div>
             {isContacted && (
-              <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded flex-shrink-0">
-                ✓ Contacted
-              </span>
+              <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center font-bold text-base shadow-md">
+                  ✓
+                </div>
+                <span className="text-xs font-semibold text-green-700 whitespace-nowrap">
+                  Contacted
+                </span>
+              </div>
             )}
           </div>
 
