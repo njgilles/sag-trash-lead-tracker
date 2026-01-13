@@ -54,16 +54,21 @@ export async function updateLeadData(
     const docRef = doc(db, 'leads', placeId)
     const existingDoc = await getDoc(docRef)
 
+    // Filter out undefined values (Firestore doesn't allow undefined)
+    const cleanedData = Object.fromEntries(
+      Object.entries(data).filter(([, value]) => value !== undefined)
+    )
+
     if (existingDoc.exists()) {
       // Document exists, update it
       await updateDoc(docRef, {
-        ...data,
+        ...cleanedData,
         lastUpdated: serverTimestamp(),
       })
     } else {
       // Document doesn't exist, create it
       await setDoc(docRef, {
-        ...data,
+        ...cleanedData,
         lastUpdated: serverTimestamp(),
       })
     }
@@ -82,11 +87,17 @@ export async function markAsContacted(
 ): Promise<void> {
   try {
     const docRef = doc(db, 'leads', lead.id)
+
+    // Filter out undefined values from lead object (Firestore doesn't allow undefined)
+    const cleanedLead = Object.fromEntries(
+      Object.entries(lead).filter(([, value]) => value !== undefined)
+    )
+
     await setDoc(
       docRef,
       {
         // Store full lead data
-        ...lead,
+        ...cleanedLead,
         // Update contact fields
         contacted: true,
         contactedDate: serverTimestamp(),
