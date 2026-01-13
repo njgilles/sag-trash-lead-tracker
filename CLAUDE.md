@@ -15,8 +15,12 @@ The app uses the Google Places API to find and map these leads in target regions
 
 - **Framework**: Next.js 15 with App Router
 - **Language**: TypeScript
-- **Styling**: Tailwind CSS with @tailwindcss/postcss
+- **Styling**: Tailwind CSS v4 with @tailwindcss/postcss
 - **Mapping**: Google Maps JavaScript API
+- **Database**: Firebase Firestore
+- **Authentication**: Firebase Authentication (email/password)
+- **Deployment**: Firebase App Hosting
+- **Secrets Management**: Google Cloud Secret Manager
 - **Data Format**: CSV export for lead lists
 - **Runtime**: Node.js with Edge Functions support
 
@@ -51,7 +55,7 @@ src/
 │   ├── email/EmailModal.tsx              # Email composition modal
 │   └── providers/AuthProvider.tsx        # Auth context wrapper
 ├── context/
-│   └── AuthContext.tsx                   # Authentication state (mock + Cognito)
+│   └── AuthContext.tsx                   # Authentication state (Firebase Auth)
 ├── lib/
 │   ├── google-maps.ts                    # Maps API loader
 │   ├── places-service.ts                 # Places API wrapper & utilities
@@ -111,6 +115,42 @@ GOOGLE_MAPS_API_KEY=your_server_key
 
 **Important:** Never commit `.env.local` to git.
 
+### Required: Firebase Configuration
+
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create a new project or use existing `sag-trash-lead-tracker`
+3. Enable Firebase Authentication:
+   - Go to Authentication → Sign-in method
+   - Enable Email/Password provider
+   - Create test user accounts in Authentication → Users
+4. Enable Firestore Database:
+   - Go to Firestore Database → Create database
+   - Start in production mode (security rules require auth)
+5. Get Firebase config from Project Settings → General → Your apps
+6. Update `.env.local` with Firebase Web SDK config:
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+```
+
+### Required: Firebase Admin SDK (for server-side operations)
+
+1. Go to Firebase Console → Project Settings → Service Accounts
+2. Click "Generate new private key"
+3. Download the JSON file
+4. Extract the `private_key` and `client_email` fields
+5. Add to `.env.local` (multi-line key format):
+```env
+FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKjMzEfYyjiWA4...\n-----END PRIVATE KEY-----\n"
+FIREBASE_ADMIN_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com
+```
+
+**Important:** Never commit `.env.local` or service account JSON to git.
+
 ## Architecture Notes
 
 ### Multi-Screen Architecture
@@ -118,8 +158,10 @@ GOOGLE_MAPS_API_KEY=your_server_key
 The app now uses Next.js App Router with three main screens:
 
 1. **Login Screen** (`/login`)
-   - Email/password form (mock auth + AWS Cognito placeholder)
+   - Email/password form using Firebase Authentication
+   - Validates credentials against Firebase user pool
    - Redirects to `/map` on successful login
+   - Displays Firebase auth error messages (wrong password, user not found, etc.)
    - Accessible without authentication
 
 2. **Map Screen** (`/map`)
@@ -137,12 +179,14 @@ The app now uses Next.js App Router with three main screens:
 
 ### Authentication Flow
 
-1. User visits `/` → AuthContext checks localStorage for session
+1. User visits `/` → AuthContext checks Firebase auth state via `onAuthStateChanged`
 2. If authenticated: redirects to `/map`, else redirects to `/login`
 3. Login form calls `AuthContext.signIn(email, password)`
-4. Mock auth succeeds with any credentials (localStorage storage)
-5. Future: AWS Cognito integration points marked with `// TODO:` comments
-6. Logout clears localStorage and redirects to `/login`
+4. Firebase Authentication validates credentials and returns JWT token
+5. Token automatically included in Firestore requests (enforced by security rules)
+6. Logout calls `signOut()` from Firebase Auth and redirects to `/login`
+
+**Note:** Users must be created in Firebase Console or via sign-up flow. The app uses Firebase Authentication, not AWS Cognito or mock auth.
 
 ### Search & Contact Tracking Flow
 
@@ -273,8 +317,15 @@ Results filtered by business status and distance from search center.
 4. Open http://localhost:3000
 
 ### Login Screen Testing
-- Try logging in with any email/password (mock auth accepts anything)
-- Verify redirect to `/map` after login
+**Prerequisites:**
+- Firebase Email/Password authentication must be enabled in Console
+- At least one user account must exist in Firebase Authentication
+
+**Testing:**
+- Try logging in with valid Firebase user credentials
+- Test invalid password (should show "Incorrect password")
+- Test non-existent email (should show "No account found with this email")
+- Verify redirect to `/map` after successful login
 - Click "Logout" button to test logout flow
 
 ### Map Screen Testing
@@ -296,17 +347,25 @@ Results filtered by business status and distance from search center.
 - Click "Details" to view lead information
 
 ### Firestore Verification
+**Prerequisites:** User must be logged in with Firebase Authentication
+
 - Mark a lead as contacted on Map screen
 - Check Firestore console: collection → leads → placeId
 - Verify full lead data is stored (name, address, type, etc.)
+- Verify `contacted: true` and `contactedDate` timestamp
+- Try accessing Firestore while logged out (should fail with permission error)
 
 ## Future Enhancements
 
-### Phase 2: AWS Cognito Integration
-- Replace mock auth with real Cognito user pool
-- Add user signup flow
-- Add password reset flow
-- Store user-specific leads (multi-tenant with Firestore rules)
+### Phase 2: Enhanced Authentication ✅ Firebase Auth Complete
+Firebase Authentication is fully implemented with email/password login.
+
+**Future improvements:**
+- Add user sign-up flow in the app (currently manual in Firebase Console)
+- Add password reset/forgot password flow
+- Add email verification before allowing login
+- Multi-tenant support: store user-specific leads with Firebase Firestore rules (`request.auth.uid == userId`)
+- Social login: Google Sign-In, GitHub Sign-In
 
 ### Phase 2: Email Sending
 - Gmail API integration with OAuth 2.0
@@ -331,11 +390,44 @@ Results filtered by business status and distance from search center.
 
 ## Deployment
 
-Currently configured for local development. For AWS deployment:
-- Build: `npm run build` creates optimized bundle
-- Deploy to AWS Amplify, EC2, or Lambda with Vercel/Netlify
-- Update API keys with production values
-- Set up environment-specific configurations
+### Firebase App Hosting (Current)
+
+The app is deployed to Firebase App Hosting with environment-based configuration:
+
+1. **Configuration File**: `apphosting.yaml`
+   - Defines environment variables and build configuration
+   - References secrets from Google Cloud Secret Manager
+   - Configures build settings for Next.js (with `@framework` directive)
+
+2. **Secrets Management**:
+   - API keys stored in Google Cloud Secret Manager (never in source control)
+   - Accessed via `firebase apphosting:secrets:set` command
+   - Access granted to backend service via `firebase apphosting:secrets:grantaccess`
+   - Never commit secrets to git or apphosting.yaml
+
+3. **Deploy Command**:
+   ```bash
+   firebase deploy
+   ```
+   This deploys both the app code and any updated Firestore rules.
+
+4. **Environment Variables**:
+   - Production secrets loaded from Google Cloud Secret Manager at build time
+   - Public Firebase config embedded in `apphosting.yaml`
+   - Local development uses `.env.local` (never committed to git)
+
+5. **Firestore Security Rules**:
+   - Rules file: `firestore.rules`
+   - Current rule: `allow read, write: if request.auth != null;`
+   - Requires authentication for all Firestore operations
+   - Deploy with: `firebase deploy --only firestore:rules`
+
+### Alternative Deployment Options
+
+- **Vercel**: Connect GitHub repo, auto-deploy on push (runs `npm run build` and `npm run start`)
+- **AWS Amplify**: Use `amplify.yml` configuration for build and deploy
+- **Docker**: Build image with `npm run build`, serve with `npm run start`
+- **Self-hosted**: Traditional Node.js server with PM2/systemd for process management
 
 ## Troubleshooting
 
@@ -355,3 +447,33 @@ Currently configured for local development. For AWS deployment:
 **TypeScript errors**
 - Run `npm run lint` to check all files
 - Most errors require type assertions for Google Maps API responses
+
+**"Missing or insufficient permissions" (Firestore)**
+- Ensure you're logged in with Firebase Authentication
+- Check Firestore rules require authentication: `request.auth != null`
+- Verify Firebase Auth is properly initialized in `src/lib/firebase.ts`
+- Open browser DevTools Console and check for auth token in network requests
+- Try reloading page after successful login to ensure auth state is established
+
+**"Function setDoc() called with invalid data. Unsupported field value: undefined"**
+- This error occurs when trying to write `undefined` values to Firestore (Firestore doesn't allow undefined)
+- Fixed in `src/lib/firestore-service.ts` by filtering undefined fields in:
+  - `markAsContacted()` function (line ~87-89)
+  - `updateLeadData()` function (line ~57-60)
+- If error persists, check that lead objects don't contain undefined optional fields
+- Use browser DevTools to inspect lead objects being sent to Firestore
+
+**Tailwind CSS won't load / "Can't resolve 'tailwindcss'" error**
+- Clear Next.js build cache: `rm -rf .next`
+- Remove node_modules and reinstall: `rm -rf node_modules package-lock.json && npm install`
+- Restart dev server: `npm run dev`
+- Check that `postcss.config.js` includes `'@tailwindcss/postcss'` plugin
+- Verify `src/app/globals.css` starts with `@import "tailwindcss";`
+
+**Firebase Authentication not working**
+- Verify Email/Password provider is enabled in Firebase Console
+- Check Firebase config in `.env.local` matches your Firebase project
+- Ensure user accounts exist in Firebase Authentication → Users
+- Check browser DevTools Console for Firebase auth errors
+- Verify `.env.local` is loaded (restart dev server after changes)
+- Look for error codes like "auth/user-not-found", "auth/wrong-password"
