@@ -126,22 +126,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Footer Note */}
-          <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-xs text-blue-700 text-center">
-              💡 <strong>Demo Mode:</strong> Use any email and password to log in
-            </p>
-          </div>
-
-          {/* AWS Cognito Integration Notes */}
-          <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600">
-            <p className="font-semibold mb-1">AWS Cognito Integration (Future):</p>
-            <code className="block bg-white p-2 rounded text-gray-700 font-mono text-xs overflow-x-auto">
-              import &#123; Amplify, Auth &#125; from 'aws-amplify'<br/>
-              Amplify.configure(&#123; Auth: &#123; ... &#125; &#125;)<br/>
-              await Auth.signIn(email, password)
-            </code>
-          </div>
         </div>
       </div>
     </div>
