@@ -1,9 +1,26 @@
 {
-  "apphosting": {
-    "backends": {
-      "client-finder": {
-        "codebase": "."
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "apphosting": [
+    {
+      "backends": {
+        "client-finder": {
+          "codebase": "."
+        }
       }
+    },
+    {
+      "backendId": "sag-trash-lead-tracker",
+      "rootDir": "/",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "functions"
+      ],
+      "alwaysDeployFromSource": true
     }
-  }
+  ]
 }
