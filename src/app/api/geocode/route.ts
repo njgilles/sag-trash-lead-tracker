@@ -40,8 +40,11 @@ export async function POST(request: NextRequest) {
     const location = result.geometry.location
 
     return NextResponse.json({
-      lat: location.lat,
-      lng: location.lng,
+      success: true,
+      location: {
+        lat: location.lat,
+        lng: location.lng,
+      },
       formattedAddress: result.formatted_address,
       placeId: result.place_id,
     })

@@ -10,12 +10,13 @@ import { ContactsTable } from '@/components/contacts/ContactsTable'
 import { ContactsFilters } from '@/components/contacts/ContactsFilters'
 import { EmailModal } from '@/components/email/EmailModal'
 import { LeadDetailsModal } from '@/components/leads/LeadDetailsModal'
+import { ManualLeadModal } from '@/components/leads/ManualLeadModal'
 
 export default function ContactsPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const { leads, loading: leadsLoading, error } = useContactedLeads()
-  const { markAsContacted, updateContactInfo } = useLeadData(leads)
+  const { markAsContacted, updateContactInfo, deleteLead } = useLeadData(leads)
 
   const [filters, setFilters] = useState<{
     type: LeadType | 'all'
@@ -31,6 +32,7 @@ export default function ContactsPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [detailsModalOpen, setDetailsModalOpen] = useState(false)
   const [selectedLeadForDetails, setSelectedLeadForDetails] = useState<Lead | null>(null)
+  const [manualLeadModalOpen, setManualLeadModalOpen] = useState(false)
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -62,8 +64,27 @@ export default function ContactsPage() {
 
   const handleMarkContacted = async (notes?: string) => {
     if (selectedLeadForDetails) {
-      await markAsContacted(selectedLeadForDetails.id, notes)
+      await markAsContacted(selectedLeadForDetails, notes)
     }
+  }
+
+  const handleDeleteLead = async () => {
+    if (selectedLeadForDetails) {
+      if (confirm(`Delete "${selectedLeadForDetails.name}"? This cannot be undone.`)) {
+        try {
+          await deleteLead(selectedLeadForDetails.id)
+          handleCloseDetails()
+        } catch (err) {
+          console.error('Error deleting lead:', err)
+        }
+      }
+    }
+  }
+
+  const handleManualLeadCreated = async (newLead: Lead) => {
+    // Show the newly created lead in details modal
+    setSelectedLeadForDetails(newLead)
+    setDetailsModalOpen(true)
   }
 
   if (authLoading) {
@@ -81,12 +102,23 @@ export default function ContactsPage() {
     <div className="flex flex-col h-full bg-white">
       {/* Header */}
       <div className="flex-shrink-0 border-b border-gray-200 p-6">
-        <h1 className="text-2xl font-bold text-gray-900">Contacted Leads</h1>
-        <p className="text-gray-600 text-sm mt-1">
-          {leadsLoading
-            ? 'Loading...'
-            : `${leads.length} lead${leads.length !== 1 ? 's' : ''} contacted`}
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Contacted Leads</h1>
+            <p className="text-gray-600 text-sm mt-1">
+              {leadsLoading
+                ? 'Loading...'
+                : `${leads.length} lead${leads.length !== 1 ? 's' : ''} contacted`}
+            </p>
+          </div>
+          <button
+            onClick={() => setManualLeadModalOpen(true)}
+            className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 font-medium transition text-sm flex items-center gap-2 flex-shrink-0"
+          >
+            <span>+</span>
+            <span>Add Manual Lead</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -162,7 +194,16 @@ export default function ContactsPage() {
         onClose={handleCloseDetails}
         onMarkContacted={handleMarkContacted}
         onUpdateContactInfo={updateContactInfo}
+        onDelete={handleDeleteLead}
         loading={false}
+      />
+
+      {/* Manual Lead Modal */}
+      <ManualLeadModal
+        isOpen={manualLeadModalOpen}
+        onClose={() => setManualLeadModalOpen(false)}
+        onLeadCreated={handleManualLeadCreated}
+        searchCenter={undefined}
       />
     </div>
   )

@@ -29,7 +29,9 @@ export default function MapPage() {
   const {
     enhancedLeads,
     markAsContacted,
+    markAsNotInterested,
     updateContactInfo,
+    deleteLead,
   } = useLeadData(leads)
 
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set())
@@ -122,6 +124,26 @@ export default function MapPage() {
 
   const handleMarkContacted = async (lead: Lead) => {
     await markAsContacted(lead.id)
+  }
+
+  const handleMarkNotInterested = async (reason?: string) => {
+    if (selectedLead) {
+      await markAsNotInterested(selectedLead.id, reason)
+    }
+  }
+
+  const handleDeleteLead = async () => {
+    if (selectedLead) {
+      if (confirm(`Delete "${selectedLead.name}"? This cannot be undone.`)) {
+        try {
+          await deleteLead(selectedLead.id)
+          setModalOpen(false)
+          setSelectedLead(null)
+        } catch (err) {
+          console.error('Error deleting lead:', err)
+        }
+      }
+    }
   }
 
   const handleNewSearch = () => {
@@ -242,7 +264,7 @@ export default function MapPage() {
       {/* Map Section */}
       <div className="flex-1">
         <GoogleMap
-          leads={leads}
+          leads={enhancedLeads}
           searchCenter={searchCenter}
           selectedLeads={selectedLeads}
           radius={filters.radius}
@@ -257,7 +279,13 @@ export default function MapPage() {
           setModalOpen(false)
           setSelectedLead(null)
         }}
+        onMarkContacted={(notes?: string) => {
+          if (selectedLead) {
+            markAsContacted(selectedLead.id, notes)
+          }
+        }}
         onUpdateContactInfo={updateContactInfo}
+        onDelete={handleDeleteLead}
       />
     </div>
   )

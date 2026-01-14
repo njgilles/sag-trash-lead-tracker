@@ -3,6 +3,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
   Timestamp,
   collection,
@@ -20,6 +21,9 @@ export interface LeadMetadata {
   contacted?: boolean
   contactedDate?: Timestamp | null
   contactNotes?: string
+  notInterested?: boolean
+  notInterestedDate?: Timestamp | null
+  rejectionReason?: string
   lastUpdated?: Timestamp
 }
 
@@ -113,6 +117,40 @@ export async function markAsContacted(
 }
 
 /**
+ * Mark lead as not interested
+ */
+export async function markAsNotInterested(
+  lead: Lead,
+  reason?: string
+): Promise<void> {
+  try {
+    const docRef = doc(db, 'leads', lead.id)
+
+    // Filter out undefined values from lead object (Firestore doesn't allow undefined)
+    const cleanedLead = Object.fromEntries(
+      Object.entries(lead).filter(([, value]) => value !== undefined)
+    )
+
+    await setDoc(
+      docRef,
+      {
+        // Store full lead data
+        ...cleanedLead,
+        // Update not interested fields
+        notInterested: true,
+        notInterestedDate: serverTimestamp(),
+        rejectionReason: reason || '',
+        lastUpdated: serverTimestamp(),
+      },
+      { merge: true }
+    )
+  } catch (error) {
+    console.error('Error marking lead as not interested:', error)
+    throw error
+  }
+}
+
+/**
  * Mark lead as not contacted
  */
 export async function markAsUncontacted(placeId: string): Promise<void> {
@@ -134,14 +172,46 @@ export async function markAsUncontacted(placeId: string): Promise<void> {
 }
 
 /**
- * Delete all lead metadata (nuclear option)
+ * Delete a lead document from Firestore
  */
 export async function deleteLeadData(placeId: string): Promise<void> {
   try {
     const docRef = doc(db, 'leads', placeId)
-    await setDoc(docRef, {}, { merge: false })
+    await deleteDoc(docRef)
   } catch (error) {
-    console.error('Error deleting lead data:', error)
+    console.error('Error deleting lead:', error)
+    throw error
+  }
+}
+
+/**
+ * Create a manual lead (not from Google Places API)
+ * Generates unique ID with format: "manual-{timestamp}-{randomId}"
+ */
+export async function createManualLead(lead: Omit<Lead, 'id'>): Promise<string> {
+  try {
+    // Generate unique ID for manual lead
+    const timestamp = Date.now()
+    const randomId = Math.random().toString(36).substring(2, 11)
+    const leadId = `manual-${timestamp}-${randomId}`
+
+    const docRef = doc(db, 'leads', leadId)
+
+    // Filter out undefined values (Firestore doesn't allow undefined)
+    const cleanedLead = Object.fromEntries(
+      Object.entries(lead).filter(([, value]) => value !== undefined)
+    )
+
+    await setDoc(docRef, {
+      ...cleanedLead,
+      isManual: true, // Mark as manually created
+      createdDate: serverTimestamp(),
+      lastUpdated: serverTimestamp(),
+    })
+
+    return leadId
+  } catch (error) {
+    console.error('Error creating manual lead:', error)
     throw error
   }
 }

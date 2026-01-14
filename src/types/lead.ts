@@ -6,7 +6,7 @@ export interface Location {
 }
 
 export interface Lead {
-  id: string;              // Google Place ID
+  id: string;              // Google Place ID or manual ID (manual-{timestamp}-{randomId})
   name: string;
   address: string;
   location: Location;
@@ -28,4 +28,10 @@ export interface Lead {
   contacted?: boolean;     // Whether lead has been contacted
   contactedDate?: string;  // ISO date string when contacted
   contactNotes?: string;   // Notes about the contact
+  notInterested?: boolean; // Whether user marked as not interested
+  notInterestedDate?: string; // ISO date string when marked as not interested
+  rejectionReason?: string;  // Reason why not interested
+
+  // Manual lead indicator
+  isManual?: boolean;      // Whether this lead was manually created
 }

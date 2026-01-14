@@ -5,14 +5,17 @@ import {
   updateLeadData,
   markAsContacted as firestoreMarkAsContacted,
   markAsUncontacted as firestoreMarkAsUncontacted,
+  markAsNotInterested as firestoreMarkAsNotInterested,
+  deleteLeadData,
 } from '@/lib/firestore-service'
 
 interface UseLeadDataReturn {
   enhancedLeads: Lead[]
   loading: boolean
   error: string | null
-  markAsContacted: (placeId: string, notes?: string) => Promise<void>
+  markAsContacted: (placeIdOrLead: string | Lead, notes?: string) => Promise<void>
   markAsUncontacted: (placeId: string) => Promise<void>
+  markAsNotInterested: (placeIdOrLead: string | Lead, reason?: string) => Promise<void>
   updateContactInfo: (
     placeId: string,
     data: {
@@ -21,6 +24,7 @@ interface UseLeadDataReturn {
       contactNotes?: string
     }
   ) => Promise<void>
+  deleteLead: (placeId: string) => Promise<void>
 }
 
 /**
@@ -62,6 +66,12 @@ export function useLeadData(leads: Lead[]): UseLeadDataReturn {
                     lead.contactedDate
                   : lead.contactedDate,
                 contactNotes: metadata?.contactNotes || lead.contactNotes,
+                notInterested: metadata?.notInterested || lead.notInterested,
+                notInterestedDate: metadata?.notInterestedDate
+                  ? metadata.notInterestedDate.toDate?.()?.toISOString() ||
+                    lead.notInterestedDate
+                  : lead.notInterestedDate,
+                rejectionReason: metadata?.rejectionReason || lead.rejectionReason,
               }
             } catch (err) {
               console.error(`Error fetching metadata for lead ${lead.id}:`, err)
@@ -155,6 +165,51 @@ export function useLeadData(leads: Lead[]): UseLeadDataReturn {
     }
   }, [])
 
+  const markAsNotInterested = useCallback(
+    async (placeIdOrLead: string | Lead, reason?: string) => {
+      try {
+        // Handle both string placeId (for backward compatibility) and Lead object
+        let leadToMark: Lead | undefined
+        let placeId: string
+
+        if (typeof placeIdOrLead === 'string') {
+          placeId = placeIdOrLead
+          // Find the lead from enhancedLeads
+          leadToMark = enhancedLeads.find((l) => l.id === placeId)
+        } else {
+          leadToMark = placeIdOrLead
+          placeId = placeIdOrLead.id
+        }
+
+        if (!leadToMark) {
+          throw new Error(`Lead with id ${placeId} not found`)
+        }
+
+        await firestoreMarkAsNotInterested(leadToMark, reason)
+
+        // Update local state
+        setEnhancedLeads((prevLeads) =>
+          prevLeads.map((lead) =>
+            lead.id === placeId
+              ? {
+                  ...lead,
+                  notInterested: true,
+                  notInterestedDate: new Date().toISOString(),
+                  rejectionReason: reason || lead.rejectionReason,
+                }
+              : lead
+          )
+        )
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to mark as not interested'
+        setError(errorMessage)
+        throw err
+      }
+    },
+    [enhancedLeads]
+  )
+
   const updateContactInfo = useCallback(
     async (
       placeId: string,
@@ -190,12 +245,33 @@ export function useLeadData(leads: Lead[]): UseLeadDataReturn {
     []
   )
 
+  const deleteLead = useCallback(
+    async (placeId: string) => {
+      try {
+        await deleteLeadData(placeId)
+
+        // Update local state to remove the deleted lead
+        setEnhancedLeads((prevLeads) =>
+          prevLeads.filter((lead) => lead.id !== placeId)
+        )
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to delete lead'
+        setError(errorMessage)
+        throw err
+      }
+    },
+    []
+  )
+
   return {
     enhancedLeads,
     loading,
     error,
     markAsContacted,
     markAsUncontacted,
+    markAsNotInterested,
     updateContactInfo,
+    deleteLead,
   }
 }

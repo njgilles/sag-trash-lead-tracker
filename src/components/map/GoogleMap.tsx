@@ -129,7 +129,13 @@ export function GoogleMap({ leads, searchCenter = RALEIGH_CENTER, selectedLeads,
           position: lead.location,
           map: mapInstanceRef.current,
           title: lead.name,
-          icon: createMarkerIcon(MARKER_COLORS[lead.type]),
+          icon: createMarkerIcon(
+            MARKER_COLORS[lead.type],
+            1,
+            lead.contacted,
+            lead.notInterested,
+            lead.isManual
+          ),
         })
 
         marker.addListener('click', () => {
@@ -149,12 +155,15 @@ export function GoogleMap({ leads, searchCenter = RALEIGH_CENTER, selectedLeads,
         markersRef.current.set(lead.id, marker)
       }
 
-      // Update marker appearance based on selection
+      // Update marker appearance based on selection and status
       const isSelected = selectedLeads?.has(lead.id)
       marker.setIcon(
         createMarkerIcon(
           MARKER_COLORS[lead.type],
-          isSelected ? 0.8 : 1
+          isSelected ? 0.8 : 1,
+          lead.contacted,
+          lead.notInterested,
+          lead.isManual
         )
       )
     }
@@ -178,11 +187,41 @@ export function GoogleMap({ leads, searchCenter = RALEIGH_CENTER, selectedLeads,
   )
 }
 
-function createMarkerIcon(color: string, opacity: number = 1): string {
+function createMarkerIcon(
+  color: string,
+  opacity: number = 1,
+  contacted?: boolean,
+  notInterested?: boolean,
+  isManual?: boolean
+): string {
+  // Determine status indicator properties
+  let statusIndicator = ''
+
+  if (contacted) {
+    // Green circle with checkmark in bottom-right
+    statusIndicator = `
+      <circle cx="26" cy="30" r="6" fill="#22c55e" stroke="white" stroke-width="1.5"/>
+      <text x="26" y="32" font-size="9" font-weight="bold" text-anchor="middle" fill="white">✓</text>
+    `
+  } else if (notInterested) {
+    // Red circle with X in bottom-right
+    statusIndicator = `
+      <circle cx="26" cy="30" r="6" fill="#ef4444" stroke="white" stroke-width="1.5"/>
+      <text x="26" y="32" font-size="10" font-weight="bold" text-anchor="middle" fill="white">✕</text>
+    `
+  }
+
+  // Manual lead indicator: dashed border and star icon
+  const borderDasharray = isManual ? '3,2' : 'none'
+  const centerIcon = isManual
+    ? `<path d="M16 10l2.5 7.5h7.5l-6 4.5 2.5 7.5-6-4.5-6 4.5 2.5-7.5-6-4.5h7.5z" fill="white"/>`
+    : `<circle cx="16" cy="16" r="5" fill="white"/>`
+
   return `data:image/svg+xml;base64,${btoa(`
     <svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
-      <path d="M16 0C7.16 0 0 7.16 0 16c0 7.73 16 24 16 24s16-16.27 16-24c0-8.84-7.16-16-16-16z" fill="${color}" opacity="${opacity}" stroke="white" stroke-width="2"/>
-      <circle cx="16" cy="16" r="5" fill="white"/>
+      <path d="M16 0C7.16 0 0 7.16 0 16c0 7.73 16 24 16 24s16-16.27 16-24c0-8.84-7.16-16-16-16z" fill="${color}" opacity="${opacity}" stroke="white" stroke-width="2" ${isManual ? `stroke-dasharray="${borderDasharray}"` : ''}/>
+      ${centerIcon}
+      ${statusIndicator}
     </svg>
   `)}`
 }
@@ -196,11 +235,24 @@ function createInfoWindowContent(lead: Lead): string {
   const websiteHtml = lead.website ? `<p><strong>Website:</strong> <a href="${lead.website}" target="_blank">Open</a></p>` : ''
   const distanceHtml = lead.distance ? `<p><strong>Distance:</strong> ${lead.distance} mi</p>` : ''
 
+  // Status indicator
+  let statusHtml = ''
+  if (lead.contacted) {
+    statusHtml = `<p style="margin: 5px 0; font-size: 12px; color: #22c55e;"><strong>✓ Contacted</strong></p>`
+  } else if (lead.notInterested) {
+    statusHtml = `<p style="margin: 5px 0; font-size: 12px; color: #ef4444;"><strong>✕ Not Interested</strong></p>`
+  }
+
+  // Manual lead indicator
+  const manualBadge = lead.isManual ? `<p style="margin: 5px 0; font-size: 11px; color: #8b5cf6; font-style: italic;">★ Manually Created</p>` : ''
+
   return `
     <div style="font-family: sans-serif; width: 250px;">
       <h3 style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold;">${lead.name}</h3>
       <p style="margin: 5px 0; font-size: 12px; color: #666;">${lead.address}</p>
       <p style="margin: 5px 0; font-size: 12px;"><strong>Type:</strong> ${lead.type}</p>
+      ${manualBadge}
+      ${statusHtml}
       ${ratingHtml}
       ${phoneHtml}
       ${websiteHtml}

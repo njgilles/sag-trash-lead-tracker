@@ -26,11 +26,12 @@ export function LeadCard({
 }: LeadCardProps) {
   const badge = TYPE_BADGES[lead.type]
   const isContacted = lead.contacted
+  const isNotInterested = lead.notInterested
 
   return (
     <div
       className={`lead-card ${isSelected ? 'selected' : ''} ${
-        isContacted ? 'opacity-60' : ''
+        isContacted || isNotInterested ? 'opacity-60' : ''
       } transition-all`}
     >
       <div className="flex gap-3">
@@ -65,6 +66,16 @@ export function LeadCard({
                 </div>
                 <span className="text-xs font-semibold text-green-700 whitespace-nowrap">
                   Contacted
+                </span>
+              </div>
+            )}
+            {isNotInterested && (
+              <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center font-bold text-base shadow-md">
+                  ✕
+                </div>
+                <span className="text-xs font-semibold text-red-700 whitespace-nowrap">
+                  Not Interested
                 </span>
               </div>
             )}
@@ -148,7 +159,7 @@ export function LeadCard({
               </button>
             )}
 
-            {!isContacted && onMarkContacted && (
+            {!isContacted && !isNotInterested && onMarkContacted && (
               <button
                 onClick={(e) => {
                   e.stopPropagation()

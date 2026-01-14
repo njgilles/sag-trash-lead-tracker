@@ -35,7 +35,7 @@ export async function getContactedLeads(): Promise<Lead[]> {
         id: doc.id,
         contactedDate: convertTimestamp(data.contactedDate),
         lastUpdated: convertTimestamp(data.lastUpdated),
-      } as Lead
+      } as unknown as Lead
     })
   } catch (error) {
     console.error('Error fetching contacted leads:', error)
