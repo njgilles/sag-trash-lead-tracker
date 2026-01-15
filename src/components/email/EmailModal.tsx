@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { Lead } from '@/types/lead'
+import { useEmailTemplates } from '@/hooks/useEmailTemplates'
 import {
-  EMAIL_TEMPLATES,
   fillTemplate,
   copyToClipboard,
-  getTemplatesForLeadType,
 } from '@/lib/email-templates'
 
 interface EmailModalProps {
@@ -16,24 +15,30 @@ interface EmailModalProps {
 }
 
 export function EmailModal({ lead, isOpen, onClose }: EmailModalProps) {
-  const [selectedTemplateId, setSelectedTemplateId] = useState(
-    EMAIL_TEMPLATES[0]?.id || ''
-  )
+  const { templates, loading } = useEmailTemplates()
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [copied, setCopied] = useState(false)
 
+  // Set initial template when templates load
+  useEffect(() => {
+    if (templates.length > 0 && !selectedTemplateId) {
+      setSelectedTemplateId(templates[0].id)
+    }
+  }, [templates, selectedTemplateId])
+
   // Update content when template changes
   useEffect(() => {
-    if (!lead) return
+    if (!lead || !selectedTemplateId) return
 
-    const template = EMAIL_TEMPLATES.find((t) => t.id === selectedTemplateId)
+    const template = templates.find((t) => t.id === selectedTemplateId)
     if (template) {
-      const filled = fillTemplate(template, lead)
+      const filled = fillTemplate(template as any, lead)
       setSubject(filled.subject)
       setBody(filled.body)
     }
-  }, [selectedTemplateId, lead])
+  }, [selectedTemplateId, lead, templates])
 
   // Reset copied state after 2 seconds
   useEffect(() => {
@@ -45,6 +50,17 @@ export function EmailModal({ lead, isOpen, onClose }: EmailModalProps) {
 
   if (!isOpen || !lead) return null
 
+  // Get templates for lead type
+  const getTemplatesForLeadType = () => {
+    const recommended = templates.filter(
+      (t) => t.leadTypes.includes(lead.type) && t.recommended
+    )
+    const other = templates.filter(
+      (t) => t.leadTypes.includes(lead.type) && !t.recommended
+    )
+    return { recommended, other }
+  }
+
   const handleCopyToClipboard = async () => {
     const fullEmail = `Subject: ${subject}\n\n${body}`
     const success = await copyToClipboard(fullEmail)
@@ -52,6 +68,8 @@ export function EmailModal({ lead, isOpen, onClose }: EmailModalProps) {
       setCopied(true)
     }
   }
+
+  const templatesForLeadType = getTemplatesForLeadType()
 
   return (
     <div
@@ -75,78 +93,84 @@ export function EmailModal({ lead, isOpen, onClose }: EmailModalProps) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* Template Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email Template
-            </label>
-            {lead && (
-              <div className="mb-2 text-xs text-gray-600">
-                <span className="font-medium">Lead Type:</span>{' '}
-                <span className="capitalize">{lead.type}</span>
-              </div>
-            )}
-            <select
-              value={selectedTemplateId}
-              onChange={(e) => setSelectedTemplateId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-            >
-              {lead && getTemplatesForLeadType(lead.type).recommended.length > 0 && (
-                <optgroup label="Recommended for this lead type">
-                  {getTemplatesForLeadType(lead.type).recommended.map(
-                    (template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name} - {template.description}
-                      </option>
-                    )
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
+            </div>
+          ) : (
+            <>
+              {/* Template Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Template
+                </label>
+                {lead && (
+                  <div className="mb-2 text-xs text-gray-600">
+                    <span className="font-medium">Lead Type:</span>{' '}
+                    <span className="capitalize">{lead.type}</span>
+                  </div>
+                )}
+                <select
+                  value={selectedTemplateId}
+                  onChange={(e) => setSelectedTemplateId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  {templatesForLeadType.recommended.length > 0 && (
+                    <optgroup label="Recommended for this lead type">
+                      {templatesForLeadType.recommended.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name} - {template.description}
+                        </option>
+                      ))}
+                    </optgroup>
                   )}
-                </optgroup>
-              )}
-              {lead && getTemplatesForLeadType(lead.type).other.length > 0 && (
-                <optgroup label="Other options for this lead type">
-                  {getTemplatesForLeadType(lead.type).other.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.name} - {template.description}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </div>
+                  {templatesForLeadType.other.length > 0 && (
+                    <optgroup label="Other options for this lead type">
+                      {templatesForLeadType.other.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name} - {template.description}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
 
-          {/* Subject */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Subject
-            </label>
-            <input
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-            />
-          </div>
+              {/* Subject */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
 
-          {/* Body */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Message
-            </label>
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={6}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono text-sm resize-none"
-            />
-          </div>
+              {/* Body */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Message
+                </label>
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  rows={6}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono text-sm resize-none"
+                />
+              </div>
 
-          {/* Info Box */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-xs text-blue-700">
-              💡 <strong>Tip:</strong> Click "Copy to Clipboard" to copy the
-              email content. Paste it into your email client and send!
-            </p>
-          </div>
+              {/* Info Box */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs text-blue-700">
+                  💡 <strong>Tip:</strong> Click "Copy to Clipboard" to copy the
+                  email content. Paste it into your email client and send!
+                </p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Footer */}

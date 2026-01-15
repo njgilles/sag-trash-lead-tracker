@@ -74,3 +74,17 @@ export interface Contract {
   notes?: string;          // Any additional notes
 }
 
+// Email Template - for storing custom and system email templates in Firestore
+export interface EmailTemplateDocument {
+  id: string;              // Firestore document ID
+  name: string;            // Display name (e.g., "Initial Outreach")
+  subject: string;         // Email subject with placeholders
+  body: string;            // Email body with placeholders
+  description: string;     // What this template is for
+  leadTypes: LeadType[];   // Which lead types this template applies to
+  recommended: boolean;    // Show first in template picker
+  isSystem: boolean;       // True for default templates (cannot be deleted)
+  isActive: boolean;       // False for soft-deleted templates
+  createdDate: any;        // Firestore Timestamp
+  lastUpdated: any;        // Firestore Timestamp
+}

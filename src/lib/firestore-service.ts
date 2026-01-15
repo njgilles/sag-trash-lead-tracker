@@ -13,7 +13,7 @@ import {
   orderBy,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import { Lead, Contract } from '@/types/lead'
+import { Lead, Contract, EmailTemplateDocument } from '@/types/lead'
 
 export interface LeadMetadata {
   contactPerson?: string
@@ -338,6 +338,126 @@ export async function deleteContract(contractId: string): Promise<void> {
     console.log('Contract deleted:', contractId)
   } catch (error) {
     console.error('Error deleting contract:', error)
+    throw error
+  }
+}
+
+/**
+ * Get all active email templates
+ */
+export async function getEmailTemplates(): Promise<EmailTemplateDocument[]> {
+  try {
+    const templatesRef = collection(db, 'email_templates')
+    const q = query(
+      templatesRef,
+      where('isActive', '==', true),
+      orderBy('createdDate', 'desc')
+    )
+    const snapshot = await getDocs(q)
+
+    return snapshot.docs.map((doc) => ({
+      ...doc.data(),
+      id: doc.id,
+    } as EmailTemplateDocument))
+  } catch (error) {
+    console.error('Error fetching email templates:', error)
+    throw error
+  }
+}
+
+/**
+ * Get a single email template by ID
+ */
+export async function getEmailTemplate(templateId: string): Promise<EmailTemplateDocument | null> {
+  try {
+    const docRef = doc(db, 'email_templates', templateId)
+    const docSnap = await getDoc(docRef)
+
+    if (docSnap.exists()) {
+      return { ...docSnap.data(), id: docSnap.id } as EmailTemplateDocument
+    }
+    return null
+  } catch (error) {
+    console.error('Error fetching email template:', error)
+    throw error
+  }
+}
+
+/**
+ * Create a new email template
+ */
+export async function createEmailTemplate(
+  template: Omit<EmailTemplateDocument, 'id' | 'createdDate' | 'lastUpdated'>
+): Promise<string> {
+  try {
+    // Generate unique ID for template
+    const templateId = `template-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
+    const docRef = doc(db, 'email_templates', templateId)
+
+    await setDoc(docRef, {
+      ...template,
+      createdDate: serverTimestamp(),
+      lastUpdated: serverTimestamp(),
+    })
+
+    return templateId
+  } catch (error) {
+    console.error('Error creating email template:', error)
+    throw error
+  }
+}
+
+/**
+ * Update an existing email template
+ */
+export async function updateEmailTemplate(
+  templateId: string,
+  updates: Partial<EmailTemplateDocument>
+): Promise<void> {
+  try {
+    const docRef = doc(db, 'email_templates', templateId)
+
+    // Filter out undefined values and remove id field
+    const cleanedUpdates = Object.fromEntries(
+      Object.entries(updates)
+        .filter(([key, value]) => value !== undefined && key !== 'id')
+    )
+
+    await updateDoc(docRef, {
+      ...cleanedUpdates,
+      lastUpdated: serverTimestamp(),
+    })
+  } catch (error) {
+    console.error('Error updating email template:', error)
+    throw error
+  }
+}
+
+/**
+ * Delete a template (soft delete by setting isActive: false)
+ * System templates cannot be deleted
+ */
+export async function deleteEmailTemplate(templateId: string): Promise<void> {
+  try {
+    // Fetch template to check if it's a system template
+    const template = await getEmailTemplate(templateId)
+
+    if (!template) {
+      throw new Error('Template not found')
+    }
+
+    if (template.isSystem) {
+      throw new Error('Cannot delete system templates')
+    }
+
+    // Soft delete: set isActive to false
+    const docRef = doc(db, 'email_templates', templateId)
+    await updateDoc(docRef, {
+      isActive: false,
+      lastUpdated: serverTimestamp(),
+    })
+  } catch (error) {
+    console.error('Error deleting email template:', error)
     throw error
   }
 }
