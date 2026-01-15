@@ -32,7 +32,18 @@ export async function geocodeAddress(address: string): Promise<Location & { form
     throw new Error(error.message || 'Failed to geocode address')
   }
 
-  return response.json()
+  const data = await response.json()
+
+  // Extract location from response
+  if (data.success && data.location) {
+    return {
+      lat: data.location.lat,
+      lng: data.location.lng,
+      formattedAddress: data.formattedAddress,
+    }
+  }
+
+  throw new Error('Invalid geocoding response')
 }
 
 export function calculateDistance(
