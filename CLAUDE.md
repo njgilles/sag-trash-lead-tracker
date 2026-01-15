@@ -311,10 +311,17 @@ Results filtered by business status and distance from search center.
 
 ### Firestore Lead Storage
 - Stores full Lead objects (not just metadata) when marked as contacted
-- Document ID = placeId (matches Google Places ID)
-- Includes: place data (name, address, type, etc.) + contact metadata (person, email, notes)
+- Document ID = placeId (matches Google Places ID) or manual-{timestamp}-{randomId} for manual leads
+- Includes: place data (name, address, type, location, etc.) + contact metadata + status
+- Lead fields stored:
+  - Basic: `name`, `address`, `type`, `location` (lat/lng), `phone`, `website`, `notes`
+  - Contact: `contactPerson`, `email`, `contactNotes`
+  - Status: `contacted`, `contactedDate`, `notInterested`, `notInterestedDate`, `rejectionReason`
+  - Metadata: `isManual` (true for manually created leads), `createdDate`, `lastUpdated`
 - Queried for Contacts screen with: `where('contacted', '==', true).orderBy('contactedDate', 'desc')`
+- Requires composite index on `contacted` (Ascending) + `contactedDate` (Descending)
 - Enables Contacts screen to display leads without re-querying Google Places API
+- Deleted leads completely removed from Firestore with `deleteDoc()`
 
 ## Development Patterns
 
@@ -381,6 +388,71 @@ Results filtered by business status and distance from search center.
 - Verify full lead data is stored (name, address, type, etc.)
 - Verify `contacted: true` and `contactedDate` timestamp
 - Try accessing Firestore while logged out (should fail with permission error)
+
+## Recent Updates (January 2026)
+
+### ✅ Completed Features
+
+1. **Manual Lead Entry** (`/contacts` page)
+   - Users can create manual leads from the Contacts page
+   - Form fields: Business Name, Address (required), Type, Contact Info, Notes
+   - Address is automatically geocoded to get coordinates
+   - Manual leads are automatically marked as contacted when created
+   - Manual leads immediately appear in the Contacts table
+
+2. **Lead Status Indicators**
+   - Map markers now show checkmark (✓) for contacted leads
+   - Map markers show X (✕) for "Not Interested" leads
+   - Sidebar cards show status badges with visual feedback
+   - Reduced opacity for contacted/rejected leads
+
+3. **Not Interested Status**
+   - Users can mark leads as "Not Interested" with optional rejection reason
+   - Tracked with `notInterested`, `notInterestedDate`, and `rejectionReason` fields
+   - Visual indicator: red X badge on cards and markers
+
+4. **Lead Deletion**
+   - Users can delete leads from both `/map` and `/contacts` pages
+   - Delete button in lead details modal (red button, footer)
+   - Confirmation dialog prevents accidental deletion
+   - Deleted leads immediately removed from Firestore database
+   - UI automatically refreshes after deletion
+
+5. **Inline Editable Fields**
+   - Quick edit capability for lead contact information
+   - Fields: Contact Person, Email, Contact Notes
+   - Auto-save on blur with visual feedback (loading spinner → checkmark)
+   - Keyboard shortcuts: Enter to save, Escape to cancel
+   - Sync changes back to Firestore
+
+6. **Improved Geocoding**
+   - `/api/geocode` endpoint fixed to return proper response format
+   - Returns `{ success: true, location: { lat, lng }, ... }`
+   - Automatic address-to-coordinates conversion
+   - Manual leads use same geocoding as API-found leads
+
+### Current Implementation Details
+
+**Manual Lead Workflow:**
+1. User creates manual lead on `/contacts` page
+2. Form fields validated (name and address required)
+3. Address automatically geocoded via `/api/geocode`
+4. Lead saved to Firestore with `isManual: true`
+5. Lead automatically marked as `contacted: true`
+6. Contacts list refetched to show new lead
+7. Details modal opens for additional info
+
+**Lead Status Management:**
+- Three status states: default (uncontacted), contacted, not interested
+- Buttons disabled appropriately based on current status
+- Status transitions stored in Firestore with timestamps
+- Visual indicators across map markers, cards, and modals
+
+**Data Persistence:**
+- All lead operations sync with Firestore
+- Firestore Admin SDK for server-side operations
+- Client-side SDK for user operations
+- Proper error handling with user-facing messages
 
 ## Future Enhancements
 
@@ -535,3 +607,22 @@ The app is deployed to Firebase App Hosting with environment-based configuration
   4. Add to `.env.local` with proper newline escaping (use `\n` in the key, not actual newlines)
 - **Note:** Never commit `.env.local` to git
 - If you see "Missing Firebase Admin credentials" error, verify all three variables are set and properly formatted
+
+**Manual leads not appearing in Contacts page**
+- Manual leads must be automatically marked as `contacted: true` when created
+- Fix: `handleManualLeadCreated()` in `/contacts/page.tsx` calls `markAsContacted()` then `refetch()`
+- After creating manual lead, the contacts list is automatically refetched to show the new lead
+- If lead still doesn't appear, check browser DevTools Console for errors
+
+**Deleted leads still appearing in UI**
+- After deletion, the page calls `refetch()` to sync Firestore data with UI
+- If deleted lead still appears, the refetch may have failed - check console errors
+- Manual refresh (Ctrl+R) will force reload from Firestore
+- Verify lead is actually deleted in Firestore Console
+
+**Geocoding errors when creating manual lead**
+- Error: "Could not find coordinates for address"
+- Causes: Invalid address, special characters, or API rate limit
+- Fix: Verify address format (e.g., "123 Main St, City, State 12345")
+- Check Google Cloud Console for Geocoding API usage/quotas
+- Try simplified address without apartment numbers or special characters

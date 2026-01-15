@@ -35,3 +35,42 @@ export interface Lead {
   // Manual lead indicator
   isManual?: boolean;      // Whether this lead was manually created
 }
+
+// Contract - represents actual customers with full contract information
+export interface Contract {
+  id: string;              // Document ID in contracts collection
+
+  // Customer Information
+  customerName: string;
+  customerAddress1: string;
+  customerAddress2?: string;
+
+  // Billing Address
+  billingAddress1?: string;
+  billingAddress2?: string;
+
+  // Primary Contact Information
+  contactEmail?: string;
+  contactMobile?: string;
+  contactPhone?: string;
+
+  // Site Information
+  siteName?: string;
+  siteAddress1?: string;
+  siteAddress2?: string;
+  siteContact?: string;
+
+  // Service Details
+  effectiveDate?: string;
+  serviceType?: string;
+
+  // Location (geocoded from address)
+  location?: Location;
+
+  // Contract Metadata
+  contractDate?: string;   // When contract was created
+  importedDate: string;    // ISO date string when imported into system
+  linkedLeadId?: string;   // Optional link to corresponding lead (if created)
+  notes?: string;          // Any additional notes
+}
+

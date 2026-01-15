@@ -13,7 +13,7 @@ import {
   orderBy,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import { Lead } from '@/types/lead'
+import { Lead, Contract } from '@/types/lead'
 
 export interface LeadMetadata {
   contactPerson?: string
@@ -235,6 +235,109 @@ export async function getContactedLeads(): Promise<Lead[]> {
     } as Lead))
   } catch (error) {
     console.error('Error fetching contacted leads:', error)
+    throw error
+  }
+}
+
+/**
+ * Store a contract in the contracts collection
+ */
+export async function createContract(
+  contractData: Omit<Contract, 'id'>
+): Promise<string> {
+  try {
+    // Generate a unique ID for the contract
+    const contractId = `contract-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+    const docRef = doc(db, 'contracts', contractId)
+    await setDoc(docRef, {
+      ...contractData,
+      importedDate: new Date().toISOString(),
+    })
+
+    console.log('Contract stored:', contractId)
+    return contractId
+  } catch (error) {
+    console.error('Error storing contract:', error)
+    throw error
+  }
+}
+
+/**
+ * Get a contract by ID
+ */
+export async function getContract(contractId: string): Promise<Contract | null> {
+  try {
+    const docRef = doc(db, 'contracts', contractId)
+    const docSnap = await getDoc(docRef)
+
+    if (docSnap.exists()) {
+      return { ...docSnap.data(), id: docSnap.id } as Contract
+    }
+    return null
+  } catch (error) {
+    console.error('Error fetching contract:', error)
+    throw error
+  }
+}
+
+/**
+ * Fetch all contracts
+ */
+export async function getAllContracts(): Promise<Contract[]> {
+  try {
+    const q = query(
+      collection(db, 'contracts'),
+      orderBy('importedDate', 'desc')
+    )
+    const snapshot = await getDocs(q)
+
+    return snapshot.docs.map((doc) => ({
+      ...doc.data(),
+      id: doc.id,
+    } as Contract))
+  } catch (error) {
+    console.error('Error fetching contracts:', error)
+    throw error
+  }
+}
+
+/**
+ * Update a contract
+ */
+export async function updateContract(
+  contractId: string,
+  data: Partial<Contract>
+): Promise<void> {
+  try {
+    const docRef = doc(db, 'contracts', contractId)
+    // Filter out undefined values
+    const updateData = Object.entries(data).reduce(
+      (acc, [key, value]) => {
+        if (value !== undefined) {
+          acc[key] = value
+        }
+        return acc
+      },
+      {} as Record<string, unknown>
+    )
+    await updateDoc(docRef, updateData)
+  } catch (error) {
+    console.error('Error updating contract:', error)
+    throw error
+  }
+}
+
+/**
+ * Delete a contract
+ */
+export async function deleteContract(contractId: string): Promise<void> {
+  try {
+    const docRef = doc(db, 'contracts', contractId)
+    await deleteDoc(docRef)
+    console.log('Contract deleted:', contractId)
+  } catch (error) {
+    console.error('Error deleting contract:', error)
     throw error
   }
 }

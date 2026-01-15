@@ -7,6 +7,7 @@ import { getGoogleMaps, RALEIGH_CENTER, DEFAULT_ZOOM } from '@/lib/google-maps'
 
 interface GoogleMapProps {
   leads: Lead[]
+  contractedLeads?: Lead[]
   searchCenter?: Location
   selectedLeads?: Set<string>
   radius?: number
@@ -19,7 +20,9 @@ const MARKER_COLORS = {
   other: '#8b5cf6', // purple
 }
 
-export function GoogleMap({ leads, searchCenter = RALEIGH_CENTER, selectedLeads, radius }: GoogleMapProps) {
+const CONTRACTED_MARKER_COLOR = '#f59e0b' // amber/gold for contracted clients
+
+export function GoogleMap({ leads, contractedLeads = [], searchCenter = RALEIGH_CENTER, selectedLeads, radius }: GoogleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<google.maps.Map | null>(null)
   const markersRef = useRef<Map<string, google.maps.Marker>>(new Map())
@@ -111,8 +114,12 @@ export function GoogleMap({ leads, searchCenter = RALEIGH_CENTER, selectedLeads,
 
     const maps = getGoogleMaps()
 
+    // Combine both search results and contracted leads
+    const allLeads = [...leads, ...contractedLeads]
+    const contractedLeadIds = new Set(contractedLeads.map(l => l.id))
+
     // Remove old markers
-    const leadIds = new Set(leads.map(l => l.id))
+    const leadIds = new Set(allLeads.map(l => l.id))
     for (const [key, marker] of markersRef.current.entries()) {
       if (key !== 'search-center' && !leadIds.has(key)) {
         marker.setMap(null)
@@ -120,9 +127,13 @@ export function GoogleMap({ leads, searchCenter = RALEIGH_CENTER, selectedLeads,
       }
     }
 
-    // Add/update lead markers
-    for (const lead of leads) {
+    // Add/update all lead markers
+    for (const lead of allLeads) {
       let marker = markersRef.current.get(lead.id)
+
+      // Determine color: gold for contracted leads, type-based for search results
+      const isContracted = contractedLeadIds.has(lead.id)
+      const markerColor = isContracted ? CONTRACTED_MARKER_COLOR : MARKER_COLORS[lead.type]
 
       if (!marker) {
         marker = new maps.Marker({
@@ -130,11 +141,12 @@ export function GoogleMap({ leads, searchCenter = RALEIGH_CENTER, selectedLeads,
           map: mapInstanceRef.current,
           title: lead.name,
           icon: createMarkerIcon(
-            MARKER_COLORS[lead.type],
+            markerColor,
             1,
             lead.contacted,
             lead.notInterested,
-            lead.isManual
+            lead.isManual,
+            isContracted
           ),
         })
 
@@ -144,7 +156,7 @@ export function GoogleMap({ leads, searchCenter = RALEIGH_CENTER, selectedLeads,
 
           // Create and show new info window
           const infoWindow = new maps.InfoWindow({
-            content: createInfoWindowContent(lead),
+            content: createInfoWindowContent(lead, isContracted),
             maxWidth: 300,
           })
 
@@ -159,25 +171,26 @@ export function GoogleMap({ leads, searchCenter = RALEIGH_CENTER, selectedLeads,
       const isSelected = selectedLeads?.has(lead.id)
       marker.setIcon(
         createMarkerIcon(
-          MARKER_COLORS[lead.type],
+          markerColor,
           isSelected ? 0.8 : 1,
           lead.contacted,
           lead.notInterested,
-          lead.isManual
+          lead.isManual,
+          isContracted
         )
       )
     }
 
     // Auto-fit bounds if leads exist
-    if (leads.length > 0) {
+    if (allLeads.length > 0) {
       const bounds = new maps.LatLngBounds()
       bounds.extend(searchCenter)
-      leads.forEach(lead => {
+      allLeads.forEach(lead => {
         bounds.extend(lead.location)
       })
       mapInstanceRef.current.fitBounds(bounds, 100)
     }
-  }, [leads, selectedLeads, isLoaded])
+  }, [leads, contractedLeads, selectedLeads, isLoaded])
 
   return (
     <div
@@ -192,7 +205,8 @@ function createMarkerIcon(
   opacity: number = 1,
   contacted?: boolean,
   notInterested?: boolean,
-  isManual?: boolean
+  isManual?: boolean,
+  isContracted?: boolean
 ): string {
   // Determine status indicator properties
   let statusIndicator = ''
@@ -211,22 +225,33 @@ function createMarkerIcon(
     `
   }
 
+  // Add indicator for contracted client if not already marked as contacted
+  if (isContracted && !statusIndicator) {
+    // Gold/amber star for contracted client
+    statusIndicator = `
+      <circle cx="26" cy="30" r="6" fill="#1f2937" stroke="white" stroke-width="1.5"/>
+      <text x="26" y="32" font-size="10" font-weight="bold" text-anchor="middle" fill="#f59e0b">★</text>
+    `
+  }
+
   // Manual lead indicator: dashed border and star icon
   const borderDasharray = isManual ? '3,2' : 'none'
   const centerIcon = isManual
     ? `<path d="M16 10l2.5 7.5h7.5l-6 4.5 2.5 7.5-6-4.5-6 4.5 2.5-7.5-6-4.5h7.5z" fill="white"/>`
     : `<circle cx="16" cy="16" r="5" fill="white"/>`
 
-  return `data:image/svg+xml;base64,${btoa(`
+  const svgString = `
     <svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
       <path d="M16 0C7.16 0 0 7.16 0 16c0 7.73 16 24 16 24s16-16.27 16-24c0-8.84-7.16-16-16-16z" fill="${color}" opacity="${opacity}" stroke="white" stroke-width="2" ${isManual ? `stroke-dasharray="${borderDasharray}"` : ''}/>
       ${centerIcon}
       ${statusIndicator}
     </svg>
-  `)}`
+  `
+
+  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`
 }
 
-function createInfoWindowContent(lead: Lead): string {
+function createInfoWindowContent(lead: Lead, isContracted: boolean = false): string {
   const ratingHtml = lead.rating
     ? `<div class="text-yellow-500 text-sm">⭐ ${lead.rating}${lead.reviewCount ? ` (${lead.reviewCount} reviews)` : ''}</div>`
     : ''
@@ -241,6 +266,8 @@ function createInfoWindowContent(lead: Lead): string {
     statusHtml = `<p style="margin: 5px 0; font-size: 12px; color: #22c55e;"><strong>✓ Contacted</strong></p>`
   } else if (lead.notInterested) {
     statusHtml = `<p style="margin: 5px 0; font-size: 12px; color: #ef4444;"><strong>✕ Not Interested</strong></p>`
+  } else if (isContracted) {
+    statusHtml = `<p style="margin: 5px 0; font-size: 12px; color: #f59e0b;"><strong>★ Current Customer</strong></p>`
   }
 
   // Manual lead indicator

@@ -15,7 +15,7 @@ import { ManualLeadModal } from '@/components/leads/ManualLeadModal'
 export default function ContactsPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const { leads, loading: leadsLoading, error } = useContactedLeads()
+  const { leads, loading: leadsLoading, error, refetch } = useContactedLeads()
   const { markAsContacted, updateContactInfo, deleteLead } = useLeadData(leads)
 
   const [filters, setFilters] = useState<{
@@ -74,6 +74,8 @@ export default function ContactsPage() {
         try {
           await deleteLead(selectedLeadForDetails.id)
           handleCloseDetails()
+          // Refetch the leads list to ensure database is in sync
+          await refetch()
         } catch (err) {
           console.error('Error deleting lead:', err)
         }
@@ -82,6 +84,10 @@ export default function ContactsPage() {
   }
 
   const handleManualLeadCreated = async (newLead: Lead) => {
+    // Automatically mark manual lead as contacted when created
+    await markAsContacted(newLead)
+    // Refetch to show the newly created lead in the list
+    await refetch()
     // Show the newly created lead in details modal
     setSelectedLeadForDetails(newLead)
     setDetailsModalOpen(true)

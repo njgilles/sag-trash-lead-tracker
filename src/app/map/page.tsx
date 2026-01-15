@@ -11,6 +11,7 @@ import { ExportButton } from '@/components/export/ExportButton'
 import { LeadDetailsModal } from '@/components/leads/LeadDetailsModal'
 import { useLeadSearch } from '@/hooks/useLeadSearch'
 import { useLeadData } from '@/hooks/useLeadData'
+import { useContactedLeads } from '@/hooks/useContactedLeads'
 import { Lead, LeadType, Location } from '@/types/lead'
 import { saveSearchState, loadSearchState, clearSearchState } from '@/lib/search-cache'
 
@@ -33,6 +34,7 @@ export default function MapPage() {
     updateContactInfo,
     deleteLead,
   } = useLeadData(leads)
+  const { leads: contactedLeads } = useContactedLeads()
 
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set())
   const [filters, setFilters] = useState<{
@@ -40,7 +42,7 @@ export default function MapPage() {
     radius: number
   }>({
     types: ['pool', 'hoa', 'neighborhood'],
-    radius: 5000, // 5km default
+    radius: 8000, // 5 mi default
   })
 
   // Modal state for lead details
@@ -265,6 +267,7 @@ export default function MapPage() {
       <div className="flex-1">
         <GoogleMap
           leads={enhancedLeads}
+          contractedLeads={contactedLeads}
           searchCenter={searchCenter}
           selectedLeads={selectedLeads}
           radius={filters.radius}

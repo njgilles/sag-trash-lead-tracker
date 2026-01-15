@@ -54,17 +54,20 @@ export function EmailModal({ lead, isOpen, onClose }: EmailModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-h-[90vh] sm:max-w-2xl max-w-full overflow-hidden flex flex-col">
+    <div
+      className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
+    >
+      <div className="rounded-lg shadow-xl w-full max-h-[90vh] sm:max-w-2xl max-w-full overflow-hidden flex flex-col" style={{ backgroundColor: '#0f1e2e' }}>
         {/* Header */}
-        <div className="flex-shrink-0 border-b border-gray-200 p-6 flex justify-between items-start">
+        <div className="border-b border-dark-border p-6 flex justify-between items-start sticky top-0 z-10" style={{ backgroundColor: '#1a2a3a' }}>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Send Email</h2>
-            <p className="text-sm text-gray-600 mt-1">{lead.name}</p>
+            <h2 className="text-xl font-bold text-white">Send Email</h2>
+            <p className="text-sm text-dark-50 mt-1">{lead.name}</p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
+            className="text-dark-50 hover:text-white text-2xl leading-none"
           >
             ×
           </button>

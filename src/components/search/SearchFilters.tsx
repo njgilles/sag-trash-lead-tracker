@@ -16,11 +16,11 @@ const LEAD_TYPES: Array<{ value: LeadType; label: string; icon: string }> = [
 ]
 
 const RADIUS_OPTIONS = [
-  { value: 1000, label: '1 km' },
-  { value: 5000, label: '5 km' },
-  { value: 10000, label: '10 km' },
-  { value: 25000, label: '25 km' },
-  { value: 50000, label: '50 km' },
+  { value: 8000, label: '5 mi' },
+  { value: 16000, label: '10 mi' },
+  { value: 24000, label: '15 mi' },
+  { value: 40000, label: '25 mi' },
+  { value: 80000, label: '50 mi' },
 ]
 
 export function SearchFilters({
