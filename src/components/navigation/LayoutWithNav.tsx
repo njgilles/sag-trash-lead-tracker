@@ -9,7 +9,7 @@ export function LayoutWithNav({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex flex-col h-screen">
-      <TabNav user={user} />
+      {user && <TabNav user={user} />}
       <main className="flex-1 overflow-hidden">
         {children}
       </main>

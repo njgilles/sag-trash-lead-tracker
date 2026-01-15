@@ -56,21 +56,11 @@ export default function LoginPage() {
         <div className="bg-white rounded-lg shadow-lg p-8">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-block bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg p-3 mb-4">
-              <svg
-                className="w-8 h-8"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-            </div>
+            <img
+              src="/shark-logo.jpg"
+              alt="SAG-Trash Shark Logo"
+              className="h-16 w-auto mx-auto mb-4"
+            />
             <h1 className="text-2xl font-bold text-gray-900">SAG-Trash</h1>
             <p className="text-gray-600 text-sm mt-1">Client Finder</p>
           </div>
